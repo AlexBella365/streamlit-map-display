@@ -1,62 +1,59 @@
 import streamlit as st
 import pandas as pd
-import pydeck as pdk
+import folium
+from streamlit_folium import st_folium
 
 st.set_page_config(layout="wide")
-st.title("Virgin Experience Map")
+st.title("Virgin Glamping Map")
 
-df = pd.read_csv("data/virgin_sanitized_geodata.csv")
-df = df.dropna(subset=["Latitude", "Longitude"]).copy()
+df = pd.read_csv("data/glamping_options_geocoded.csv")
+df = df.dropna(subset=["latitude", "longitude"]).copy()
 
-# Build per-row color based on star rating
-def rating_to_color(rating):
-    if pd.isna(rating):
-        return [180, 180, 180, 180]  # grey for N/A
-    t = (rating - 1) / 4  # 0..1
-    r = int(200 - t * 200)
-    g = int(30 + t * 170)
-    b = int(0 + t * 50)
-    return [r, g, b, 180]
+def parse_nights(name):
+    name = str(name).lower()
+    if "one night" in name or name.startswith("overnight"):
+        return 1
+    if "two night" in name:
+        return 2
+    if "three night" in name:
+        return 3
+    return None
 
-df["color"] = df["Star rating"].apply(rating_to_color)
+def nights_to_hex(n):
+    if n == 1:
+        return "#bf7980"
+    if n == 2:
+        return "#42A594"
+    return "#b4b4b4"
 
-df["Star rating display"] = df["Star rating"].apply(
-    lambda x: f"{x:.1f}" if not pd.isna(x) else "N/A"
-)
-df["Extra fee display"] = df["Extra fee"].fillna(0).apply(lambda x: f"£{x:.0f}")
+df["nights"] = df["name"].apply(parse_nights)
 
-layer = pdk.Layer(
-    "ScatterplotLayer",
-    data=df,
-    get_position="[Longitude, Latitude]",
-    get_radius=15000,
-    get_fill_color="color",
-    pickable=True,
-    auto_highlight=True,
+m = folium.Map(
+    location=[df["latitude"].mean(), df["longitude"].mean()],
+    zoom_start=5,
+    tiles="CartoDB positron",
 )
 
-tooltip = {
-    "html": (
-        "<b>{Experience}</b><br/>"
-        "Star Rating: {Star rating display}<br/>"
-        "Extra Cost: {Extra fee display}"
-    ),
-    "style": {"backgroundColor": "rgba(0,0,0,0.8)", "color": "white", "fontSize": "14px"},
-}
+for _, row in df.iterrows():
+    color = nights_to_hex(row["nights"])
+    nights_txt = f"{row['nights']} night{'s' if row['nights'] and row['nights'] > 1 else ''}" if row["nights"] else "Unknown"
+    extra = row["extra_fee"] if not pd.isna(row["extra_fee"]) else "£0"
+    html = (
+        f"<b>{row['name']}</b><br>"
+        f"Nights: {nights_txt}<br>"
+        f"Extra Cost: {extra}<br>"
+        f'<a href="{row["link"]}" target="_blank">see here</a>'
+    )
+    folium.CircleMarker(
+        location=[row["latitude"], row["longitude"]],
+        radius=8,
+        fill=True,
+        fill_color=color,
+        fill_opacity=0.9,
+        color="#333",
+        weight=1,
+        popup=folium.Popup(html, max_width=350),
+        tooltip=row["name"],
+    ).add_to(m)
 
-view_state = pdk.ViewState(
-    latitude=df["Latitude"].mean(),
-    longitude=df["Longitude"].mean(),
-    zoom=5,
-    pitch=0,
-)
-
-st.pydeck_chart(
-    pdk.Deck(
-        layers=[layer],
-        initial_view_state=view_state,
-        tooltip=tooltip,
-        map_style="light",
-    ),
-    use_container_width=True,
-)
+st_folium(m, width='stretch', height=600)

@@ -1,6 +1,13 @@
-# Virgin Experience Map
+# Virgin Glamping Map
 
-Displays Virgin experience deals on an interactive map, colour-coded by star rating.
+Interactive map of Virgin Experience glamping deals, colour-coded by number of nights.
+
+- **Grey** — unknown nights
+- **Red** — 1 night
+- **Green** — 2 nights
+- **Yellow** — 3+ nights
+
+Click a pin to see details and a link to the offer.
 
 ## Usage
 
@@ -13,4 +20,4 @@ Opens at `http://localhost:8501`.
 
 ## Data
 
-`virgin_sanitized_geodata.csv` — experiences with lat/lng, star rating, and extra fee.
+`data/glamping_options_geocoded.csv` — glamping deals with lat/lng, price, and link.
